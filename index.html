@@ -2,9 +2,11 @@
 <meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>P2P Foto</title>
-<style>body{font-family:sans-serif;text-align:center;padding:14px}
+<style>
+body{font-family:sans-serif;text-align:center;padding:14px}
 input,button{font-size:17px;padding:8px;margin:6px;width:85%;max-width:340px}
-textarea{width:92%;height:120px;font-size:9px}</style>
+textarea{width:92%;height:120px;font-size:9px}
+</style>
 <h2>Foto Gönder</h2>
 <input type=file id=f accept=image/*>
 <button onclick=g()>Gönder</button>
@@ -12,30 +14,39 @@ textarea{width:92%;height:120px;font-size:9px}</style>
 <textarea id=t readonly></textarea>
 <button onclick="navigator.clipboard.writeText(t.value);this.textContent='✓ Kopyalandı'">Kopyala</button>
 <script>
-const fragment = location.hash.substring(1);
-if (!fragment) { s.textContent = "QR'dan gelmediniz"; }
-const O = JSON.parse(atob(fragment));
-const pc = new RTCPeerConnection();
-const ch = pc.createDataChannel("f");
-ch.onopen = () => s.textContent = "Hazır! Dosya seçip Gönder'e bas.";
-pc.setRemoteDescription(O)
-  .then(() => pc.createAnswer())
-  .then(a => pc.setLocalDescription(a))
-  .then(() => t.value = JSON.stringify({
-      sdp: pc.localDescription.sdp,
-      type: pc.localDescription.type
-  }))
-  .catch(e => s.textContent = "Hata: " + e);
+function b64urlDecode(s){
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  return atob(s);
+}
+const frag = location.hash.substring(1);
+if (!frag) {
+  document.getElementById('s').textContent = "QR'dan gelmediniz.";
+} else {
+  const O = JSON.parse(b64urlDecode(frag));
+  const pc = new RTCPeerConnection();
+  const ch = pc.createDataChannel("f");
+  ch.onopen = () => document.getElementById('s').textContent = "Hazır! Dosya seçip Gönder'e bas.";
+  pc.setRemoteDescription(O)
+    .then(() => pc.createAnswer())
+    .then(a => pc.setLocalDescription(a))
+    .then(() => document.getElementById('t').value = JSON.stringify({
+        sdp: pc.localDescription.sdp,
+        type: pc.localDescription.type
+    }))
+    .catch(e => document.getElementById('s').textContent = "Hata: " + e);
 
-async function g() {
-  const f1 = document.getElementById("f").files[0];
-  if (!f1 || ch.readyState !== "open") { alert("Önce cevabı PC'ye yapıştır"); return; }
-  ch.send("SIZE:" + f1.size);
-  const b = await f1.arrayBuffer();
-  for (let i = 0; i < b.byteLength; i += 65536) {
-    if (ch.bufferedAmount > 1048576) await new Promise(r => setTimeout(r, 50));
-    ch.send(b.slice(i, i + 65536));
-  }
-  s.textContent = "OK:" + f1.size;
+  window.g = async function() {
+    const f1 = document.getElementById("f").files[0];
+    const st = document.getElementById("s");
+    if (!f1 || ch.readyState !== "open") { alert("Önce cevabı PC'ye yapıştır"); return; }
+    ch.send("SIZE:" + f1.size);
+    const b = await f1.arrayBuffer();
+    for (let i = 0; i < b.byteLength; i += 65536) {
+      if (ch.bufferedAmount > 1048576) await new Promise(r => setTimeout(r, 50));
+      ch.send(b.slice(i, i + 65536));
+    }
+    st.textContent = "OK:" + f1.size;
+  };
 }
 </script>
